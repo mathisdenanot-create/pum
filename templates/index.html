@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calculateur de Marge — Étude PMP</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --pum-blue:       #00337a;
+      --pum-blue-light: #0057b8;
+      --pum-orange:     #e8500a;
+      --pum-orange-dk:  #c44008;
+    }
+
+    body {
+      background: #eef2f7;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    .app-header {
+      background: linear-gradient(135deg, var(--pum-blue) 0%, var(--pum-blue-light) 100%);
+      color: #fff;
+      padding: 18px 0 16px;
+      box-shadow: 0 3px 12px rgba(0,0,0,.18);
+    }
+    .app-header h1 { font-size: 1.55rem; font-weight: 700; margin: 0; }
+    .app-header p  { font-size: .85rem; opacity: .82; margin: 2px 0 0; }
+    .logo-pill {
+      background: rgba(255,255,255,.15);
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-weight: 800;
+      font-size: 1.3rem;
+      letter-spacing: 1px;
+    }
+
+    /* ── CARDS ── */
+    .card {
+      border: none;
+      border-radius: 14px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.07);
+    }
+    .card-header-blue {
+      background: var(--pum-blue);
+      color: #fff;
+      border-radius: 14px 14px 0 0 !important;
+      font-weight: 600;
+      padding: 12px 18px;
+    }
+
+    /* ── UPLOAD ZONE ── */
+    .upload-zone {
+      border: 2.5px dashed #96b8e0;
+      border-radius: 12px;
+      padding: 36px 20px;
+      text-align: center;
+      background: #f7faff;
+      cursor: pointer;
+      transition: background .2s, border-color .2s;
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+      background: #deeafc;
+      border-color: var(--pum-blue-light);
+    }
+    .upload-zone i { font-size: 2.8rem; color: var(--pum-blue-light); }
+    .upload-zone h5 { margin: 10px 0 4px; color: #2c3e50; }
+    .upload-zone small { color: #6c757d; }
+    #fileName { font-size: .82rem; color: var(--pum-blue); margin-top: 8px; font-weight: 500; }
+
+    /* ── MARGIN INPUT ── */
+    .margin-section { background: #fff; border-radius: 14px; padding: 22px; box-shadow: 0 2px 12px rgba(0,0,0,.07); }
+    .taux-input { font-size: 1.4rem; font-weight: 700; text-align: center; color: var(--pum-blue); }
+
+    /* ── BTN PUM ── */
+    .btn-pum {
+      background: var(--pum-orange); border-color: var(--pum-orange);
+      color: #fff; font-weight: 600; border-radius: 8px;
+    }
+    .btn-pum:hover, .btn-pum:focus {
+      background: var(--pum-orange-dk); border-color: var(--pum-orange-dk); color: #fff;
+    }
+    .btn-pum:disabled { opacity: .6; }
+
+    /* ── KPI CARDS ── */
+    .kpi-card { border-radius: 12px; padding: 16px 20px; color: #fff; }
+    .kpi-card .kpi-value { font-size: 1.7rem; font-weight: 800; line-height: 1; }
+    .kpi-card .kpi-label { font-size: .78rem; opacity: .88; margin-top: 4px; }
+    .kpi-blue   { background: linear-gradient(135deg, var(--pum-blue), var(--pum-blue-light)); }
+    .kpi-orange { background: linear-gradient(135deg, #e8500a, #f57c3a); }
+    .kpi-green  { background: linear-gradient(135deg, #1a8a4a, #28c76f); }
+    .kpi-teal   { background: linear-gradient(135deg, #0c7a7a, #17c1c1); }
+
+    /* ── TABLE ── */
+    #resultsTable thead th {
+      background: #f0f4fa;
+      color: #374151;
+      font-weight: 600;
+      font-size: .82rem;
+      border-bottom: 2px solid #d0daea;
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+    #resultsTable tbody td { font-size: .85rem; vertical-align: middle; }
+    #resultsTable tbody tr:hover { background: #f5f8ff; }
+
+    .col-ref   { font-family: monospace; font-weight: 700; color: var(--pum-blue); }
+    .col-desig { color: #374151; }
+    .num       { text-align: right; white-space: nowrap; }
+    .cell-base { background: #fff8e1; font-weight: 700; color: #7a5a00; }
+    .cell-pv   { font-weight: 800; color: var(--pum-blue); }
+    .cell-marge{ color: #1a8a4a; font-weight: 600; }
+    .badge-max { font-size: .68rem; vertical-align: middle; margin-left: 3px; }
+
+    .taux-cell input {
+      width: 62px; font-size: .82rem; text-align: center; padding: 3px 4px;
+      border: 1px solid #c5d3e8; border-radius: 6px; background: #f7faff;
+      font-weight: 600; color: var(--pum-blue);
+    }
+    .taux-cell input:focus { outline: none; border-color: var(--pum-blue-light); box-shadow: 0 0 0 2px #ddeeff; }
+
+    /* ── TOTALS ROW ── */
+    #totalsRow td { background: #e8f0fb; font-weight: 700; font-size: .85rem; }
+
+    /* ── SPINNER ── */
+    #loadingBlock { display: none; }
+
+    /* ── PRINT ── */
+    @media print {
+      .no-print { display: none !important; }
+      body { background: #fff; }
+      .app-header { background: var(--pum-blue) !important; -webkit-print-color-adjust: exact; }
+      .kpi-card { -webkit-print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="app-header no-print">
+  <div class="container d-flex align-items-center gap-3">
+    <div class="logo-pill">PUM</div>
+    <div>
+      <h1><i class="fas fa-calculator me-2"></i>Calculateur de Marge — Étude PMP</h1>
+      <p>Importez une étude devis PMP pour calculer vos prix de vente et taux de marge</p>
+    </div>
+  </div>
+</header>
+
+<div class="container py-4">
+
+  <!-- UPLOAD + TAUX -->
+  <div class="row g-4 mb-4 no-print">
+
+    <!-- Upload -->
+    <div class="col-lg-7">
+      <div class="card">
+        <div class="card-header-blue"><i class="fas fa-file-pdf me-2"></i>Importer une étude devis PMP</div>
+        <div class="card-body p-3">
+          <div class="upload-zone" id="uploadZone" onclick="document.getElementById('pdfInput').click()">
+            <i class="fas fa-cloud-upload-alt d-block"></i>
+            <h5>Glissez votre PDF ici</h5>
+            <small>ou cliquez pour parcourir — Format : étude devis PMP (PDF)</small>
+            <div id="fileName"></div>
+          </div>
+          <input type="file" id="pdfInput" accept=".pdf" style="display:none">
+        </div>
+      </div>
+    </div>
+
+    <!-- Taux + bouton -->
+    <div class="col-lg-5">
+      <div class="margin-section h-100 d-flex flex-column justify-content-between">
+        <div>
+          <label class="form-label fw-semibold text-secondary text-uppercase" style="font-size:.75rem;letter-spacing:.5px">
+            <i class="fas fa-percent me-1"></i>Taux de marge global
+          </label>
+          <div class="input-group input-group-lg mb-2">
+            <input type="number" class="form-control taux-input" id="tauxMarge"
+                   value="40" min="0" max="99" step="0.5">
+            <span class="input-group-text fw-bold">%</span>
+          </div>
+          <p class="text-muted" style="font-size:.78rem">
+            <i class="fas fa-info-circle text-primary me-1"></i>
+            Le <strong>prix de base</strong> retenu est toujours le plus élevé entre <strong>PMP/DPA</strong> et <strong>PA FR</strong>.<br>
+            Formule : <code>Prix vente = Prix base ÷ (1 − taux)</code>
+          </p>
+        </div>
+        <button class="btn btn-pum btn-lg w-100 mt-2" id="uploadBtn" onclick="uploadPDF()">
+          <i class="fas fa-play-circle me-2"></i>Analyser le PDF
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SPINNER -->
+  <div id="loadingBlock" class="text-center py-5">
+    <div class="spinner-border text-primary" style="width:3rem;height:3rem"></div>
+    <p class="mt-3 text-muted fw-semibold">Analyse du PDF en cours…</p>
+  </div>
+
+  <!-- ERREUR -->
+  <div id="errorAlert" class="alert alert-danger d-none" role="alert">
+    <i class="fas fa-exclamation-triangle me-2"></i><span id="errorMsg"></span>
+  </div>
+
+  <!-- RESULTATS -->
+  <div id="resultsSection" class="d-none">
+
+    <!-- KPIs -->
+    <div class="row g-3 mb-4" id="kpiRow"></div>
+
+    <!-- Tableau -->
+    <div class="card">
+      <div class="card-header-blue d-flex justify-content-between align-items-center">
+        <span><i class="fas fa-table me-2"></i>Détail par article</span>
+        <div class="d-flex gap-2 no-print">
+          <button class="btn btn-sm btn-light fw-semibold" onclick="exportCSV()">
+            <i class="fas fa-file-csv me-1"></i>CSV
+          </button>
+          <button class="btn btn-sm btn-light fw-semibold" onclick="window.print()">
+            <i class="fas fa-print me-1"></i>Imprimer
+          </button>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0" id="resultsTable">
+          <thead>
+            <tr>
+              <th>Réf. article</th>
+              <th>Désignation</th>
+              <th class="num">PMP / DPA&nbsp;(€)</th>
+              <th class="num">PA FR&nbsp;(€)</th>
+              <th class="num" style="background:#fff8e1">Prix de base&nbsp;(€)</th>
+              <th class="text-center">Taux marge</th>
+              <th class="num">Prix vente HT&nbsp;(€)</th>
+              <th class="num">Marge&nbsp;(€)</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody"></tbody>
+          <tfoot><tr id="totalsRow"></tr></tfoot>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /resultsSection -->
+</div><!-- /container -->
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  /* ────────────────────────────────────────────
+     State
+  ──────────────────────────────────────────── */
+  let articlesData = [];
+
+  /* ────────────────────────────────────────────
+     Drag & drop
+  ──────────────────────────────────────────── */
+  const zone = document.getElementById('uploadZone');
+
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    const f = e.dataTransfer.files[0];
+    if (f && f.name.toLowerCase().endsWith('.pdf')) {
+      // Assign to input via DataTransfer
+      const dt = new DataTransfer();
+      dt.items.add(f);
+      document.getElementById('pdfInput').files = dt.files;
+      showFileName(f.name);
+    }
+  });
+
+  document.getElementById('pdfInput').addEventListener('change', e => {
+    if (e.target.files[0]) showFileName(e.target.files[0].name);
+  });
+
+  function showFileName(name) {
+    document.getElementById('fileName').innerHTML = `<i class="fas fa-file-pdf me-1"></i>${name}`;
+  }
+
+  /* Live recalculation when global taux changes */
+  document.getElementById('tauxMarge').addEventListener('input', () => {
+    if (articlesData.length) renderTable();
+  });
+
+  /* ────────────────────────────────────────────
+     Upload & parse
+  ──────────────────────────────────────────── */
+  async function uploadPDF() {
+    const fileInput = document.getElementById('pdfInput');
+    if (!fileInput.files[0]) { showError('Veuillez sélectionner un fichier PDF.'); return; }
+
+    setLoading(true);
+
+    const formData = new FormData();
+    formData.append('pdf', fileInput.files[0]);
+
+    try {
+      const resp = await fetch('/upload', { method: 'POST', body: formData });
+      const data = await resp.json();
+      if (!resp.ok || data.error) { showError(data.error || 'Erreur inconnue.'); return; }
+      articlesData = data.articles;
+      renderTable();
+      document.getElementById('errorAlert').classList.add('d-none');
+      document.getElementById('resultsSection').classList.remove('d-none');
+      document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+    } catch (err) {
+      showError('Impossible de contacter le serveur. Vérifiez que l'application est bien démarrée.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  /* ────────────────────────────────────────────
+     Rendering
+  ──────────────────────────────────────────── */
+  function renderTable() {
+    const globalTaux = parseFloat(document.getElementById('tauxMarge').value) || 0;
+    const tbody = document.getElementById('resultsBody');
+    tbody.innerHTML = '';
+
+    let totBase = 0, totPV = 0, totMarge = 0;
+
+    articlesData.forEach((art, idx) => {
+      const pmp  = art.pmp_dpa;
+      const pafr = art.pa_fr;
+      const vals = [pmp, pafr].filter(v => v !== null && v > 0);
+      if (!vals.length) return;
+
+      const prixBase = Math.max(...vals);
+      const taux     = globalTaux;
+      const prixVente = taux < 100 ? prixBase / (1 - taux / 100) : 0;
+      const margeEur  = prixVente - prixBase;
+
+      totBase  += prixBase;
+      totPV    += prixVente;
+      totMarge += margeEur;
+
+      const maxIsPMP  = pmp  !== null && (pafr === null || pmp  >= pafr);
+      const maxIsPAFR = pafr !== null && (pmp  === null || pafr > pmp);
+
+      const tr = document.createElement('tr');
+      tr.dataset.idx = idx;
+      tr.innerHTML = `
+        <td class="col-ref">${art.article}</td>
+        <td class="col-desig" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+            title="${esc(art.designation)}">${esc(art.designation) || '<em class="text-muted">—</em>'}</td>
+        <td class="num ${maxIsPMP ? 'fw-bold text-primary' : ''}">
+          ${pmp !== null ? fmtN(pmp) : '<span class="text-muted">—</span>'}
+          ${maxIsPMP ? '<span class="badge bg-primary badge-max">base</span>' : ''}
+        </td>
+        <td class="num ${maxIsPAFR ? 'fw-bold text-primary' : ''}">
+          ${pafr !== null ? fmtN(pafr) : '<span class="text-muted">—</span>'}
+          ${maxIsPAFR ? '<span class="badge bg-primary badge-max">base</span>' : ''}
+        </td>
+        <td class="num cell-base">${fmtN(prixBase)}</td>
+        <td class="taux-cell text-center">
+          <input type="number" value="${taux}" min="0" max="99" step="0.5"
+                 data-idx="${idx}" onchange="updateRow(this)">
+          <span class="ms-1 text-muted" style="font-size:.8rem">%</span>
+        </td>
+        <td class="num cell-pv" data-pv="${idx}">${fmtN(prixVente)}</td>
+        <td class="num cell-marge" data-mg="${idx}">${fmtN(margeEur)}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    renderTotals(totBase, totPV, totMarge);
+    renderKPIs(articlesData.length, totBase, totPV, totMarge, globalTaux);
+  }
+
+  function updateRow(input) {
+    const idx   = parseInt(input.dataset.idx);
+    const taux  = parseFloat(input.value) || 0;
+    const art   = articlesData[idx];
+    const vals  = [art.pmp_dpa, art.pa_fr].filter(v => v !== null && v > 0);
+    if (!vals.length) return;
+    const prixBase  = Math.max(...vals);
+    const prixVente = taux < 100 ? prixBase / (1 - taux / 100) : 0;
+    const margeEur  = prixVente - prixBase;
+    document.querySelector(`[data-pv="${idx}"]`).textContent = fmtN(prixVente);
+    document.querySelector(`[data-mg="${idx}"]`).textContent = fmtN(margeEur);
+    refreshTotals();
+  }
+
+  function refreshTotals() {
+    let totBase = 0, totPV = 0, totMarge = 0;
+    articlesData.forEach((art, idx) => {
+      const vals = [art.pmp_dpa, art.pa_fr].filter(v => v !== null && v > 0);
+      if (!vals.length) return;
+      const prixBase = Math.max(...vals);
+      const input    = document.querySelector(`input[data-idx="${idx}"]`);
+      const taux     = input ? (parseFloat(input.value) || 0) : 0;
+      const prixVente = taux < 100 ? prixBase / (1 - taux / 100) : 0;
+      totBase  += prixBase;
+      totPV    += prixVente;
+      totMarge += prixVente - prixBase;
+    });
+    renderTotals(totBase, totPV, totMarge);
+  }
+
+  function renderTotals(totBase, totPV, totMarge) {
+    const tauxGlobal = totPV > 0 ? totMarge / totPV * 100 : 0;
+    document.getElementById('totalsRow').innerHTML = `
+      <td colspan="2" class="fw-bold">TOTAL</td>
+      <td></td><td></td>
+      <td class="num">${fmtN(totBase)}</td>
+      <td class="text-center">${tauxGlobal.toFixed(1)}&nbsp;%</td>
+      <td class="num">${fmtN(totPV)}</td>
+      <td class="num">${fmtN(totMarge)}</td>`;
+  }
+
+  function renderKPIs(count, totBase, totPV, totMarge, taux) {
+    const tauxReel = totPV > 0 ? (totMarge / totPV * 100) : taux;
+    document.getElementById('kpiRow').innerHTML = `
+      <div class="col-6 col-md-3">
+        <div class="kpi-card kpi-blue">
+          <div class="kpi-value">${count}</div>
+          <div class="kpi-label"><i class="fas fa-boxes me-1"></i>Articles analysés</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="kpi-card kpi-orange">
+          <div class="kpi-value">${tauxReel.toFixed(1)}&nbsp;%</div>
+          <div class="kpi-label"><i class="fas fa-percent me-1"></i>Taux de marge appliqué</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="kpi-card kpi-green">
+          <div class="kpi-value">${fmtN(totMarge)}</div>
+          <div class="kpi-label"><i class="fas fa-euro-sign me-1"></i>Marge totale (€)</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="kpi-card kpi-teal">
+          <div class="kpi-value">${fmtN(totPV)}</div>
+          <div class="kpi-label"><i class="fas fa-chart-line me-1"></i>CA potentiel HT (€)</div>
+        </div>
+      </div>`;
+  }
+
+  /* ────────────────────────────────────────────
+     Export CSV
+  ──────────────────────────────────────────── */
+  function exportCSV() {
+    let csv = 'Référence;Désignation;PMP/DPA (€);PA FR (€);Prix de base (€);Taux marge %;Prix vente HT (€);Marge (€)\n';
+    articlesData.forEach((art, idx) => {
+      const vals = [art.pmp_dpa, art.pa_fr].filter(v => v !== null && v > 0);
+      if (!vals.length) return;
+      const prixBase  = Math.max(...vals);
+      const input     = document.querySelector(`input[data-idx="${idx}"]`);
+      const taux      = input ? (parseFloat(input.value) || 0) : 0;
+      const prixVente = taux < 100 ? prixBase / (1 - taux / 100) : 0;
+      const margeEur  = prixVente - prixBase;
+      csv += [
+        art.article,
+        '"' + art.designation.replace(/"/g, '""') + '"',
+        fmtCsv(art.pmp_dpa),
+        fmtCsv(art.pa_fr),
+        fmtCsv(prixBase),
+        taux.toFixed(1),
+        fmtCsv(prixVente),
+        fmtCsv(margeEur),
+      ].join(';') + '\n';
+    });
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'etude_marge_pmp.csv';
+    a.click();
+  }
+
+  /* ────────────────────────────────────────────
+     Helpers
+  ──────────────────────────────────────────── */
+  function fmtN(v) {
+    if (v === null || v === undefined || isNaN(v)) return '—';
+    return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+  }
+  function fmtCsv(v) {
+    return (v !== null && v !== undefined && !isNaN(v)) ? v.toFixed(2).replace('.', ',') : '';
+  }
+  function esc(s) {
+    if (!s) return '';
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function showError(msg) {
+    document.getElementById('errorMsg').textContent = msg;
+    document.getElementById('errorAlert').classList.remove('d-none');
+    document.getElementById('resultsSection').classList.add('d-none');
+  }
+  function setLoading(on) {
+    document.getElementById('loadingBlock').style.display = on ? 'block' : 'none';
+    document.getElementById('uploadBtn').disabled = on;
+    if (on) document.getElementById('errorAlert').classList.add('d-none');
+  }
+</script>
+</body>
+</html>
