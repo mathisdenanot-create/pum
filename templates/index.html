@@ -128,6 +128,26 @@
     /* ── SPINNER ── */
     #loadingBlock { display: none; }
 
+    /* ── NAV PILL ── */
+    .nav-pill {
+      display: inline-flex;
+      background: rgba(255,255,255,.12);
+      border-radius: 30px;
+      padding: 4px;
+      gap: 2px;
+    }
+    .nav-pill a {
+      color: rgba(255,255,255,.75);
+      text-decoration: none;
+      padding: 6px 18px;
+      border-radius: 24px;
+      font-size: .85rem;
+      font-weight: 500;
+      transition: all .2s;
+    }
+    .nav-pill a:hover  { color: #fff; background: rgba(255,255,255,.15); }
+    .nav-pill a.active { background: #fff; color: var(--pum-blue); font-weight: 700; }
+
     /* ── PRINT ── */
     @media print {
       .no-print { display: none !important; }
@@ -141,12 +161,18 @@
 
 <!-- HEADER -->
 <header class="app-header no-print">
-  <div class="container d-flex align-items-center gap-3">
-    <div class="logo-pill">PUM</div>
-    <div>
-      <h1><i class="fas fa-calculator me-2"></i>Calculateur de Marge — Étude PMP</h1>
-      <p>Importez une étude devis PMP pour calculer vos prix de vente et taux de marge</p>
+  <div class="container d-flex align-items-center justify-content-between gap-3 flex-wrap">
+    <div class="d-flex align-items-center gap-3">
+      <div class="logo-pill">PUM</div>
+      <div>
+        <h1><i class="fas fa-calculator me-2"></i>Calculateur de Marge — Étude PMP</h1>
+        <p>Importez une étude devis PMP pour calculer vos prix de vente et taux de marge</p>
+      </div>
     </div>
+    <nav class="nav-pill">
+      <a href="/" class="active"><i class="fas fa-calculator me-1"></i>Calculateur</a>
+      <a href="/historique"><i class="fas fa-history me-1"></i>Historique des prix</a>
+    </nav>
   </div>
 </header>
 

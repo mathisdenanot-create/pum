@@ -1,12 +1,48 @@
 import os
 import re
+import sqlite3
 import tempfile
+from datetime import datetime
 from flask import Flask, render_template, request, jsonify
 import pdfplumber
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024  # 32MB max
 
+DATABASE = os.path.join(os.path.dirname(__file__), 'pum_historique.db')
+
+
+# ── DATABASE ────────────────────────────────────────────────────────────────
+
+def get_db():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db():
+    with get_db() as conn:
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS prix_historique (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                article      TEXT    NOT NULL,
+                designation  TEXT,
+                pmp_dpa      REAL,
+                pa_fr        REAL,
+                filename     TEXT,
+                recorded_at  TEXT    NOT NULL
+            )
+        ''')
+        conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_article ON prix_historique(article)'
+        )
+        conn.commit()
+
+
+init_db()
+
+
+# ── PDF PARSING ──────────────────────────────────────────────────────────────
 
 def parse_float(val):
     """Convert string to float, handles French decimal format (comma)."""
@@ -48,7 +84,6 @@ def parse_pmp_pdf(pdf_path):
 
     with pdfplumber.open(pdf_path) as pdf:
         for page in pdf.pages:
-            # Try line-based table extraction first (works well for bordered tables)
             for strategy in [
                 {"vertical_strategy": "lines", "horizontal_strategy": "lines"},
                 {"vertical_strategy": "text", "horizontal_strategy": "lines"},
@@ -62,7 +97,6 @@ def parse_pmp_pdf(pdf_path):
                     if not table or len(table) < 2:
                         continue
 
-                    # Find header row containing "Article"
                     header_idx = None
                     col_map = {}
                     for i, row in enumerate(table):
@@ -78,7 +112,6 @@ def parse_pmp_pdf(pdf_path):
                     if header_idx is None:
                         continue
 
-                    # Extract data rows
                     for row in table[header_idx + 1:]:
                         if not row:
                             continue
@@ -92,7 +125,6 @@ def parse_pmp_pdf(pdf_path):
                             continue
 
                         article = str(art_val).strip().replace('*', '').strip()
-                        # Article refs are 4-6 digit numbers
                         if not re.match(r'^\d{4,6}$', article):
                             continue
 
@@ -100,7 +132,6 @@ def parse_pmp_pdf(pdf_path):
                         des_col = col_map.get('designation')
                         if des_col is not None and des_col < len(row):
                             designation = str(row[des_col] or '').strip()
-                            # Clean up newlines
                             designation = ' '.join(designation.split())
 
                         pmp_dpa = None
@@ -116,7 +147,6 @@ def parse_pmp_pdf(pdf_path):
                         if pmp_dpa is None and pa_fr is None:
                             continue
 
-                        # Avoid duplicates
                         if not any(a['article'] == article for a in articles):
                             articles.append({
                                 'article': article,
@@ -126,14 +156,21 @@ def parse_pmp_pdf(pdf_path):
                             })
 
                 if articles:
-                    break  # Found articles with this strategy, move to next page
+                    break
 
     return articles
 
 
+# ── ROUTES ───────────────────────────────────────────────────────────────────
+
 @app.route('/', methods=['GET'])
 def index():
     return render_template('index.html')
+
+
+@app.route('/historique', methods=['GET'])
+def historique():
+    return render_template('historique.html')
 
 
 @app.route('/upload', methods=['POST'])
@@ -162,11 +199,92 @@ def upload():
                     "Article, PMP/DPA et PA FR."
                 )
             }), 422
+
+        # Save every article to the history database
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        filename = file.filename
+        with get_db() as conn:
+            for art in articles:
+                conn.execute(
+                    '''INSERT INTO prix_historique
+                       (article, designation, pmp_dpa, pa_fr, filename, recorded_at)
+                       VALUES (?, ?, ?, ?, ?, ?)''',
+                    (art['article'], art['designation'],
+                     art['pmp_dpa'], art['pa_fr'], filename, now)
+                )
+            conn.commit()
+
         return jsonify({'articles': articles, 'count': len(articles)})
     except Exception as e:
         return jsonify({'error': f'Erreur lors de la lecture du PDF : {str(e)}'}), 500
     finally:
         os.unlink(tmp_path)
+
+
+@app.route('/api/search')
+def search():
+    ref = request.args.get('ref', '').strip()
+    if not ref:
+        return jsonify({'error': 'Référence manquante.'}), 400
+
+    with get_db() as conn:
+        rows = conn.execute(
+            '''SELECT article, designation, pmp_dpa, pa_fr, filename, recorded_at
+               FROM prix_historique
+               WHERE article = ?
+               ORDER BY recorded_at DESC
+               LIMIT 10''',
+            (ref,)
+        ).fetchall()
+
+    if not rows:
+        return jsonify({'found': False, 'results': []})
+
+    results = [dict(r) for r in rows]
+
+    def get_base(r):
+        vals = [v for v in [r['pmp_dpa'], r['pa_fr']] if v is not None and v > 0]
+        return max(vals) if vals else None
+
+    # Oldest = last entry (results sorted DESC), newest = first
+    newest_base = get_base(results[0])
+    oldest_base = get_base(results[-1])
+
+    pct_change = None
+    if oldest_base and newest_base and oldest_base > 0:
+        pct_change = round((newest_base - oldest_base) / oldest_base * 100, 2)
+
+    return jsonify({
+        'found': True,
+        'results': results,
+        'pct_change': pct_change,
+        'oldest_date': results[-1]['recorded_at'],
+        'newest_date': results[0]['recorded_at'],
+        'oldest_base': oldest_base,
+        'newest_base': newest_base,
+    })
+
+
+@app.route('/api/autocomplete')
+def autocomplete():
+    q = request.args.get('q', '').strip()
+    if len(q) < 2:
+        return jsonify([])
+
+    with get_db() as conn:
+        rows = conn.execute(
+            '''SELECT DISTINCT article,
+                      (SELECT designation FROM prix_historique p2
+                       WHERE p2.article = p1.article
+                       ORDER BY recorded_at DESC LIMIT 1) AS designation
+               FROM prix_historique p1
+               WHERE article LIKE ?
+               ORDER BY article
+               LIMIT 10''',
+            (q + '%',)
+        ).fetchall()
+
+    return jsonify([{'article': r['article'], 'designation': r['designation']} for r in rows])
 
 
 if __name__ == '__main__':
